@@ -244,6 +244,34 @@ func (s steamUser) GetSteamID() CSteamID {
 	return CSteamID(v)
 }
 
+func (s steamUser) RequestEncryptedAppTicket(dataToInclude []byte) SteamAPICallHandle {
+	var dataPtr, dataSize uintptr = 0, 0
+	if dataToInclude != nil && len(dataToInclude) > 0 {
+		dataPtr = uintptr(unsafe.Pointer(&dataToInclude[0]))
+		dataSize = uintptr(len(dataToInclude))
+	}
+	v, err := theDLL.call(flatAPI_ISteamUser_RequestEncryptedAppTicket, uintptr(s), dataPtr, dataSize)
+
+	if err != nil {
+		panic(err)
+	}
+	return SteamAPICallHandle{handle: uint64(v), callbackId: CallbackIdEncryptedAppTicketResponse}
+}
+
+func (s steamUser) GetEncryptedAppTicket() (ticket []byte, success bool) {
+	var actualSize uint32
+	ticket = make([]byte, 1024)
+	dataPtr := uintptr(unsafe.Pointer(&ticket[0]))
+
+	v, err := theDLL.call(flatAPI_ISteamUser_GetEncryptedAppTicket, uintptr(s), dataPtr, uintptr(len(ticket)), uintptr(unsafe.Pointer(&actualSize)))
+	if err != nil {
+		panic(err)
+	}
+	success = byte(v) != 0
+	ticket = ticket[:actualSize]
+	return
+}
+
 func SteamUserStats() ISteamUserStats {
 	v, err := theDLL.call(flatAPI_SteamUserStats)
 	if err != nil {
@@ -326,4 +354,36 @@ func (s steamUtils) IsSteamRunningOnSteamDeck() bool {
 	}
 
 	return byte(v) != 0
+}
+
+func (s steamUtils) IsAPICallCompleted(apiCall SteamAPICallHandle) (completed, failed bool) {
+	v, err := theDLL.call(flatAPI_ISteamUtils_IsAPICallCompleted, uintptr(s), uintptr(apiCall.handle), uintptr(unsafe.Pointer(&failed)))
+	if err != nil {
+		panic(err)
+	}
+
+	completed = byte(v) != 0
+	return
+}
+
+func (s steamUtils) GetAPICallFailureReason(apiCall SteamAPICallHandle) ESteamAPICallFailure {
+	v, err := theDLL.call(flatAPI_ISteamUtils_GetAPICallFailureReason, uintptr(s), uintptr(apiCall.handle))
+	if err != nil {
+		panic(err)
+	}
+
+	return ESteamAPICallFailure(v)
+}
+
+func (s steamUtils) GetAPICallResult(apiCall SteamAPICallHandle, response []byte) (completed, failed bool) {
+	dataPtr := uintptr(unsafe.Pointer(&response[0]))
+	dataSize := uintptr(len(response))
+	v, err := theDLL.call(flatAPI_ISteamUtils_GetAPICallResult, uintptr(s), uintptr(apiCall.handle), dataPtr, dataSize,
+		uintptr(apiCall.callbackId), uintptr(unsafe.Pointer(&failed)))
+	if err != nil {
+		panic(err)
+	}
+
+	completed = byte(v) != 0
+	return
 }

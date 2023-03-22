@@ -9,6 +9,17 @@ type AppId_t uint32
 type CSteamID uint64
 type InputHandle_t uint64
 
+// SteamAPICallHandle combines the SteamAPICall_t handle and the callbackId required to actually read the response
+type SteamAPICallHandle struct {
+	handle     uint64
+	callbackId int
+}
+
+const (
+	CallbackIdSteamUser                  = 100
+	CallbackIdEncryptedAppTicketResponse = CallbackIdSteamUser + 54
+)
+
 type ESteamInputType int32
 
 const (
@@ -35,6 +46,25 @@ const (
 	_STEAM_INPUT_MAX_COUNT = 16
 )
 
+// api call result
+type ApiCallResult int
+
+const (
+	ApiCallResultNone ApiCallResult = 0
+	ApiCallResultOK   ApiCallResult = 1
+	// there are hundreds more of these... See steampublicclient.h in the SDK.
+)
+
+type ESteamAPICallFailure int
+
+const (
+	ESteamAPICallFailureNone               ESteamAPICallFailure = -1
+	ESteamAPICallFailureSteamGone          ESteamAPICallFailure = 0
+	ESteamAPICallFailureNetworkFailure     ESteamAPICallFailure = 1
+	ESteamAPICallFailureInvalidHandle      ESteamAPICallFailure = 2
+	ESteamAPICallFailureMismatchedCallback ESteamAPICallFailure = 3
+)
+
 type ISteamApps interface {
 	GetAppInstallDir(appID AppId_t) string
 	GetCurrentGameLanguage() string
@@ -56,6 +86,8 @@ type ISteamRemoteStorage interface {
 
 type ISteamUser interface {
 	GetSteamID() CSteamID
+	RequestEncryptedAppTicket(dataToInclude []byte) SteamAPICallHandle
+	GetEncryptedAppTicket() (ticket []byte, success bool)
 }
 
 type ISteamUserStats interface {
@@ -68,6 +100,9 @@ type ISteamUserStats interface {
 
 type ISteamUtils interface {
 	IsSteamRunningOnSteamDeck() bool
+	IsAPICallCompleted(apiCall SteamAPICallHandle) (completed, failed bool)
+	GetAPICallFailureReason(apiCall SteamAPICallHandle) ESteamAPICallFailure
+	GetAPICallResult(apiCall SteamAPICallHandle, response []byte) (completed, failed bool)
 }
 
 const (
@@ -91,8 +126,10 @@ const (
 	flatAPI_ISteamRemoteStorage_FileDelete  = "SteamAPI_ISteamRemoteStorage_FileDelete"
 	flatAPI_ISteamRemoteStorage_GetFileSize = "SteamAPI_ISteamRemoteStorage_GetFileSize"
 
-	flatAPI_SteamUser             = "SteamAPI_SteamUser_v021"
-	flatAPI_ISteamUser_GetSteamID = "SteamAPI_ISteamUser_GetSteamID"
+	flatAPI_SteamUser                            = "SteamAPI_SteamUser_v021"
+	flatAPI_ISteamUser_GetSteamID                = "SteamAPI_ISteamUser_GetSteamID"
+	flatAPI_ISteamUser_RequestEncryptedAppTicket = "SteamAPI_ISteamUser_RequestEncryptedAppTicket"
+	flatAPI_ISteamUser_GetEncryptedAppTicket     = "SteamAPI_ISteamUser_GetEncryptedAppTicket"
 
 	flatAPI_SteamUserStats                      = "SteamAPI_SteamUserStats_v012"
 	flatAPI_ISteamUserStats_RequestCurrentStats = "SteamAPI_ISteamUserStats_RequestCurrentStats"
@@ -103,4 +140,7 @@ const (
 
 	flatAPI_SteamUtils                            = "SteamAPI_SteamUtils_v010"
 	flatAPI_ISteamUtils_IsSteamRunningOnSteamDeck = "SteamAPI_ISteamUtils_IsSteamRunningOnSteamDeck"
+	flatAPI_ISteamUtils_IsAPICallCompleted        = "SteamAPI_ISteamUtils_IsAPICallCompleted"
+	flatAPI_ISteamUtils_GetAPICallFailureReason   = "SteamAPI_ISteamUtils_GetAPICallFailureReason"
+	flatAPI_ISteamUtils_GetAPICallResult          = "SteamAPI_ISteamUtils_GetAPICallResult"
 )
